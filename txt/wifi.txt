@@ -1,0 +1,53 @@
+esp-wireless-drivers-3rdparty (c)
+    https://github.com/esp-rs/esp-wireless-drivers-3rdparty
+    driver pre wifi, najnizsia dustupna uroven, priamo od esp
+    urceny pre programy nepouzivajuce idf
+    binary + .h
+    tunak hladat c funkcie pouzite v esp-wifi
+
+esp32-wifi-lib (c)
+    https://github.com/espressif/esp32-wifi-lib
+    submodule esp-idf
+    driver pre wifi (ako esp-wireless-drivers-3rdparty)
+    docs - https://docs.espressif.com/projects/esp-idf/en/stable/esp32c6/api-guides/wifi.html
+    examples - https://github.com/espressif/esp-idf/tree/v5.2.1/examples/wifi
+
+esp32-open-mac (c)
+    https://github.com/esp32-open-mac/esp32-open-mac
+    open source driver pre wifi
+    iba mala cast implementovana - rx, tx (setup vobec)
+    reverse engineering esp32-wifi-lib
+    ma to blog
+
+esp-wifi (rust)
+    https://github.com/esp-rs/esp-wifi
+    driper pre wifi, od esp
+    pouziva esp-wireless-drivers-3rdparty plus daky kod navyse
+    no_std
+
+
+https://github.com/espressif/esp32-wifi-lib/issues/2
+    issue k tomu ze wifi driver ma byt open source
+
+
+
+
+
+mac - media access control
+    csma/ca - channel sense multiple access / collision avoidance
+    kedy vysiela a tak
+
+phy - physical
+    antena, radiove vlny a tak
+
+organizacia
+    scanning - zistim ake su siete
+    pripojim sa - sta naviaze spojenie so ap
+    sifrovanie
+
+dhcp ???
+
+chcem poslat daco po wifi:
+    zistim ake su siete
+    pripojim sa
+    poslem

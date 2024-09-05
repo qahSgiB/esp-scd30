@@ -1,0 +1,174 @@
+// # i2c - write
+    // let status;
+
+    // {
+    //     let i2c_ptr = I2C.get();
+    //     // [safety] (mut ref to static) inside main + `I2C` is not used inside interrupts (yet)
+    //     // [safety] (MaybeUninit::assume_init_mut) `I2C` is initialized
+    //     let i2c = unsafe { (&mut *i2c_ptr).assume_init_mut() };
+
+    //     i2c.fifo_conf().modify(|_, w| {
+    //         w.tx_fifo_rst().set_bit()
+    //          .rx_fifo_rst().set_bit()
+    //     });
+
+    //     i2c.fifo_conf().modify(|_, w| {
+    //         w.tx_fifo_rst().clear_bit()
+    //          .rx_fifo_rst().clear_bit()
+    //     });
+
+    //     let commands = [
+    //         I2CCommand::Start,
+    //         I2CCommand::Write { ack_ckeck: true, ack_exp: false, len: 3 },
+    //         I2CCommand::Stop,
+    //     ];
+    //     i2c.comd_iter().zip(commands.into_iter()).for_each(|(cmd_reg, cmd)| cmd_reg.write(|w| w.command().variant(cmd.into())));
+
+    //     i2c.data().write(|w| w.fifo_rdata().variant((0x61 << 1) | 0));
+    //     i2c.data().write(|w| w.fifo_rdata().variant(0xD1));
+    //     i2c.data().write(|w| w.fifo_rdata().variant(0x00));
+
+    //     i2c.ctr().modify(|_, w| w.trans_start().set_bit());
+
+    //     loop {
+    //         if i2c.int_raw().read().time_out_int_raw().bit_is_set() { // timeout on scl
+    //             status = 1;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().nack_int_raw().bit_is_set() { // ack not recieved
+    //             status = 2;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().arbitration_lost_int_raw().bit_is_set() { // volaky i2c protocol error, ked je tam viacero masterov asi abo co
+    //             status = 3;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().trans_complete_int_raw().bit_is_set() { // transaction complete -> ok
+    //             status = 4;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().scl_main_st_to_int_raw().bit_is_set() { // timeout on main state machine
+    //             status = 6;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().scl_st_to_int_raw().bit_is_set() { // timeout on other state machine
+    //             status = 7;
+    //             break;
+    //         }
+    //     }
+    // } // explicit lifetime for `i2c`
+    
+    // critical_section::with(|_cs| {
+    //     // [safety] (mut ref to static, by access to `USB_BUFFER`, `USB` and `ALARM0`) inside main + critical section
+    //     // [safety] (MaybeUninit::assume_init_mut, by access to `ALARM0` and `USB`) already initialized
+    //     unsafe { println_i!("i2c write : {}", status) };
+    // });
+
+    // let status;
+    // {
+    //     let i2c_ptr = I2C.get();
+    //     // [safety] (mut ref to static, by access to `USB_BUFFER`, `USB` and `ALARM0`) inside main + critical section
+    //     // [safety] (MaybeUninit::assume_init_mut, by access to `ALARM0` and `USB`) already initialized
+    //     let i2c = unsafe { (&mut *i2c_ptr).assume_init_mut() };
+
+    //     i2c.fifo_conf().modify(|_, w| {
+    //         w.tx_fifo_rst().set_bit()
+    //         .rx_fifo_rst().set_bit()
+    //     });
+
+    //     i2c.fifo_conf().modify(|_, w| {
+    //         w.tx_fifo_rst().clear_bit()
+    //         .rx_fifo_rst().clear_bit()
+    //     });
+
+    //     i2c.int_clr().write(|w| {
+    //         w.time_out_int_clr().set_bit()
+    //         .nack_int_clr().set_bit()
+    //         .arbitration_lost_int_clr().set_bit()
+    //         .trans_complete_int_clr().set_bit()
+    //         .end_detect_int_clr().set_bit()
+    //         .scl_main_st_to_int_clr().set_bit()
+    //         .scl_st_to_int_clr().set_bit()
+    //     });
+
+    //     let commands = [
+    //         I2CCommand::Start,
+    //         I2CCommand::Write { ack_ckeck: true, ack_exp: false, len: 1 },
+    //         I2CCommand::Read { ack: false, len: 2 },
+    //         I2CCommand::Read { ack: true, len: 1 },
+    //         I2CCommand::Stop,
+    //     ];
+    //     i2c.comd_iter().zip(commands.into_iter()).for_each(|(cmd_reg, cmd)| cmd_reg.write(|w| w.command().variant(cmd.into())));
+
+    //     i2c.data().write(|w| w.fifo_rdata().variant((0x61 << 1) | 1));
+
+    //     i2c.ctr().modify(|_, w| w.trans_start().set_bit());
+
+    //     loop {
+    //         if i2c.int_raw().read().time_out_int_raw().bit_is_set() {
+    //             status = 1;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().nack_int_raw().bit_is_set() {
+    //             status = 2;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().arbitration_lost_int_raw().bit_is_set() {
+    //             status = 3;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().trans_complete_int_raw().bit_is_set() {
+    //             status = 4;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().end_detect_int_raw().bit_is_set() {
+    //             status = 5;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().scl_main_st_to_int_raw().bit_is_set() {
+    //             status = 6;
+    //             break;
+    //         }
+
+    //         if i2c.int_raw().read().scl_st_to_int_raw().bit_is_set() {
+    //             status = 7;
+    //             break;
+    //         }
+    //     }
+    // } // explicit lifetime for `i2c`
+
+    // critical_section::with(|_cs| {
+    //     // [safety] (mut ref to static, by access to `USB_BUFFER`, `USB` and `ALARM0`) inside main + critical section
+    //     // [safety] (MaybeUninit::assume_init_mut, by access to `ALARM0` and `USB`) already initialized
+    //     unsafe { println_i!("i2c read : {}", status) };
+    // });
+
+    // let byte1;
+    // let byte2;
+    // let byte3;
+    // {
+    //     let i2c_ptr = I2C.get();
+    //     // [safety] (mut ref to static) inside main + `I2C` is not used inside interrupts (yet)
+    //     // [safety] (MaybeUninit::assume_init_mut) `I2C` is initialized
+    //     let i2c = unsafe { (&mut *i2c_ptr).assume_init_mut() };
+
+    //     byte1 = i2c.data().read().fifo_rdata().bits();
+    //     byte2 = i2c.data().read().fifo_rdata().bits();
+    //     byte3 = i2c.data().read().fifo_rdata().bits();
+    // } // explicit lifetime for `i2c`
+
+    // critical_section::with(|_cs| {
+    //     // [safety] (mut ref to static, by access to `USB_BUFFER` and `ALARM0`) inside main + critical section
+    //     // [safety] (MaybeUninit::assume_init_mut, by access to `ALARM0`) already initialized
+    //     unsafe { println_i!("i2c bytes : {:02x} {:02x} {:02x}", byte1, byte2, byte3) };
+    // });

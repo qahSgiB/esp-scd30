@@ -1,0 +1,28 @@
+    [postup stary]
+x usb
+x ir recieving
+x ir transmiting
+x wifi udp
+i2c communication with co2 sensor
+? wifi + http page / sending data to pc
+low power
+
+    [postup]
+usb tx
+usb rx
+i2c
+ir rx
+wifi ...
+low power
+    
+
+    [todo]
+(flash) when using wifi --no-stub is needed
+create own mutex mechanism
+
+(general logic) some other alarm mechanism than `on_alarm` function (signals ??)
+
+    [done]
+(simplify) don't use println
+usb-writer - non instant write
+(simplify) look into using esp-backtrace without esp-println

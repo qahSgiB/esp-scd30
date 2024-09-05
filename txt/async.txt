@@ -1,0 +1,9 @@
+data = any ptr
+
+RawWaker funkcie
+    clone: data -> RawWaker
+    wake: data
+    wake_by_ref: data
+    drop: data
+
+context dava &Waker

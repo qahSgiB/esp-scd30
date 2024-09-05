@@ -1,0 +1,26 @@
+hw buffer
+
+usb tx:
+    hw fifo buffer - 64 cap
+    write1: u8
+    flush (start)
+    free
+
+    sw buffer [u8] + minimum empty space + timeout
+
+ir tx:
+    hw ram buffer - 96 cap
+    (write at slice): [u8] = Command
+    start
+    done
+
+    sw buffer [u8] = Command
+
+ir tx with pause:
+    done + delay
+
+
+
+main loop
+usb sw buffer -> usb hw fifo (usb update)
+ir sw buffer -> ir ram

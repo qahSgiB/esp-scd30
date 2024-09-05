@@ -1,0 +1,128 @@
+ovladac na ventilator dekodovany:
+
+addr 1000_0000
+
+0000_0000           1000_0000
+0010_1000 0110_1000 1010_1000
+0001_1000           1001_1000
+0000_1000           1000_1000
+0001_0000 1010_1111 1001_0000
+
+
+
+
+resistor = (supply voltage - led forward voltage) / led forward current
+
+
+1 -> 0
+2 -> 1
+3 -> 1
+4 -> 1
+5 -> 1 (4/4)
+6 -> 1 (4/4)
+7 -> 1 (4/4)
+8 -> 2 (4/4)
+9 -> 3 (4/4)
+10 -> 5,5 (4/4)
+15 -> 11,4 (4/4)
+20 -> 17,3 (4/4)
+
+
+
+carrier: 40khz, 1/4 or 1/3 duty
+short = 24 * carrier
+
+1/3:
+clock: 480khz
+carrier high: 4
+carrier low: 8
+src clock: 80mhz
+clock divider: 166 + 2/3
+
+12.6 * 16e3
+
+tin = 80mhz
+drmt = 166 + 2/3
+trmt = tin / drmt = 480khz
+carrier high + low = 12
+carrier = 40khz
+dpul = 96
+tpul = 5khz
+
+
+
+ram pristup z cpu alebo od tx/rx - pri rx mozu byt konflikty
+continuous mode = wrap mode + end marker + loop counting
+loop count sa incrementuje pri kazdom end markeri
+
+
+    nejasne
+update sync
+direct ram access
+jak sa krizia nastavenia wrap modu a continous modu
+
+
+hro - hardware read only ???
+sc - self clear - sam sa vie nastavit na 0
+ss - self set - sam sa vie nastavit na 1
+wt - zapis 1 trigerrne event (napr. clearnutie volacoho ineho)
+wtc - resetne sa na 0 ak sa zapise 1 do korespondujuceho wt registra (da sa clearnut pomocou ineho registra)
+
+    -------  per channel  -------
+*RMT_CH0DATA_REG (32bit, hro) - fifo data
+
+*RMT_CH0CONF0_REG
+ > run     RMT_TX_START_CH0 (wt) - starts transmission
+@> reset   RMT_MEM_RD_RST_CH0 (wt) - resets ram read address of transmitter
+ > reset   RMT_APB_MEM_RST_CH (wr) - resets ram w/r address for apb fifo ???
+d> mode    RMT_TX_CONTI_MODE_CH0 (rw) - enables continous mode
+d> mode    RMT_MEM_TX_WRAP_EN_CH0 (rw) - wrap mode - 0 = off, 1 = on = at the end of the block continues from beginning of the block
+@> idle    RMT_IDLE_OUT_LV_CH0 (rw) - sets idle output level when enabled by RMT_IDLE_OUT_EN_CH0
+@> idle    RMT_IDLE_OUT_EN_CH0 (rw) - 0 = idle output set by level of ending pulse, 1 = idle output set by RMT_IDLE_OUT_LV_CH0
+ > run     RMT_TX_STOP_CH (r/w/sc) - stops transmission immediatly
+@> clock   RMT_DIV_CNT_CH0 (8b, rw) - clock divider, used for pulse timing, not for carrier generation
+d> mem     RMT_MEM_SIZE_CH0 (3b, rw) - pocet blokov navyse, bloky sa prekryvaju 0,1,2,3
+@> carrier RMT_CARRIER_EFF_EN_CH (rw) - 0 = add carrier on data and idle, 1 = add carrier only on data
+@> carrier RMT_CARRIER_EN_CH0 (rw) - enables carrier
+@> carrier RMT_CARRIER_OUT_LV_CH0 (rw) - 0 = add carrier on low level, 1 = add carrier on high level
+ >         RMT_CONF_UPDATE_CH0 (wt) - update sync
+
+RMT_CH0STATUS_REG
+
+*RMT_CH0CARRIER_DUTY_REG (rw) - carrier high a low timing config
+@> RMT_CARRIER_LOW_CH0
+@> RMT_CARRIER_HIGH_CH0
+
+*RMT_CH0_TX_LIM_REG
+ > RMT_TX_LIM_CH0 (9bit, rw) - entry count after which RMT_CH0_TX_THR_EVENT_INT interrupt is triggered
+ > RMT_TX_LOOP_NUM_CH0 (10bit, rw) - max loop count, when max loop count is reached interrupt RMT_CH0_TX_LOOP_INT is triggered
+ > RMT_TX_LOOP_CNT_EN_CH0 (rw) - enables loop count for continuous mode
+ > RMT_LOOP_COUNT_RESET_CH (wt) - resets loop count (max or actual ???)
+ > RMT_LOOP_STOP_EN_CH0 (rw) - transmission stops when loop count reaches this value
+
+    -------  general  -------
++RMT_SYS_CONF_REG
+@> RMT_APB_FIFO_MASK (rw) - 0 = fifo, 1 = direct ram access
+ > RMT_MEM_CLK_FORCE_ON (rw) - enables clock ???
+ > RMT_CLK_EN (rw) - enables clock ???
+
+*RMT_REF_CNT_RST_REG (wt)
+@> RMT_REF_CNT_RST_CH0 - reset clock divider to beginning
+
+*PCR_RMT_SCLK_CONF_REG (rw) - clock config for rmt (mimo rmt kapitoly)
+@> enable clock
+@> clock selection
+@> fractional clock divider
+
+
+    -------  interrupts registers  -------
+RMT_INT_RAW_REG (r/wtc/ss) - raw interrupt status
+RMT_INT_ST_REG (ro) - masked interrupt status
+d RMT_INT_ENA_REG (rw) - enables interrupt
+@ RMT_INT_CLR_REG (wt) - clears interrupt
+
+    -------  interrupts  -------
+RMT_CH0_ERR_INT - error happened ???
+RMT_CH0_TX_THR_EVENT_INT - triggered when number of transmitted pulse entries reaches RMT_TX_LIM_CH
+RMT_CH0_TX_END_INT - end of transmission
+RMT_CH0_TX_LOOP_INT - max loop count reached, max loop count is set by RMT_TX_LOOP_NUM_CH0

@@ -1,0 +1,116 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SDCDebugAState {
+    None,
+    BootDelay(usize),
+    DoWrite,
+    WaitWriteDone,
+    WaitReadDone,
+    Done,
+    Error,
+}
+
+struct SDCDebugA<'a> {
+    i2c: PeripheralRef<'a, I2C0>,
+    state: SDCDebugAState,
+}
+
+impl<'a> SDCDebugA<'a> {
+    fn new(i2c: impl Peripheral<P = I2C0> + 'a) -> Self {
+        Self {
+            i2c: i2c.into_ref(),
+            state: SDCDebugAState::None,
+        }
+    }
+
+    fn enable_interrupt(&mut self) {
+        interrupts::i2c_interrupt_enable(Some(Priority::Priority5));
+    }
+
+    fn setup(&mut self, clocks: &Clocks, scl_pin: impl OutputPin + InputPin, sda_pin: impl OutputPin + InputPin) {
+        simple_i2c::setup(self.i2c.reborrow(), 50u32.kHz(), clocks);
+        simple_i2c::setup_pins(scl_pin, sda_pin);
+    }
+
+    fn start<const N: usize>(&mut self, qq: &mut QQAlarmQueue<N>) {
+        let qq_alarm_id = qq.add(SystemTimer::now() + SystemTimer::TICKS_PER_SECOND * 5 / 2).unwrap();
+
+        self.state = SDCDebugAState::BootDelay(qq_alarm_id);
+    }
+
+    fn update<const N: usize>(&mut self, usb_writer: &mut UsbWriter<N>) -> bool {
+        match self.state {
+            SDCDebugAState::DoWrite => {
+                simple_i2c::reset_fifo(self.i2c.reborrow());
+
+                // SAFETY: number of bytes is less then or equal to 31
+                unsafe { simple_i2c::prepare_write_unchecked(self.i2c.reborrow(), 0x61, &[0xD1, 0x00]) };
+
+                simple_i2c::start(self.i2c.reborrow());
+
+                self.state = SDCDebugAState::WaitWriteDone;
+
+                true
+            },
+            SDCDebugAState::WaitWriteDone => {
+                let pending_interrupts = interrupts::i2c_interrupt_get_and_clear(I2CInterruptStatus::all());
+
+                if pending_interrupts.is_empty() {
+                    false
+                } else {
+                    if pending_interrupts.is_error() {
+                        let _ = writeln!(usb_writer, "i2c error after write ({:?})", pending_interrupts);
+
+                        self.state = SDCDebugAState::Error;
+                    } else {
+                        simple_i2c::reset_fifo(self.i2c.reborrow());
+
+                        // SAFETY: `len` is less then or equal to 32
+                        unsafe { simple_i2c::prepare_read_unchecked(self.i2c.reborrow(), 0x61, 3) };
+
+                        simple_i2c::start(self.i2c.reborrow());
+
+                        self.state = SDCDebugAState::WaitReadDone;
+                    }
+
+                    true
+                }
+            },
+            SDCDebugAState::WaitReadDone => {
+                let pending_interrupts = interrupts::i2c_interrupt_get_and_clear(I2CInterruptStatus::all());
+
+                if pending_interrupts.is_empty() {
+                    false
+                } else {
+                    if pending_interrupts.is_error() {
+                        let _ = writeln!(usb_writer, "i2c error after read ({:?})", pending_interrupts);
+
+                        self.state = SDCDebugAState::Error;
+                    } else {
+                        let byte1 = self.i2c.data().read().fifo_rdata().bits();
+                        let byte2 = self.i2c.data().read().fifo_rdata().bits();
+                        let byte3 = self.i2c.data().read().fifo_rdata().bits();
+
+                        let bytes = [byte1, byte2, byte3];
+
+                        let _ = writeln!(usb_writer, "i2c read data : {:02x} {:02x} {:02x}", bytes[0], bytes[1], bytes[2]);
+
+                        self.state = SDCDebugAState::Done;
+                    }
+
+                    true
+                }
+            },
+            SDCDebugAState::None | SDCDebugAState::BootDelay(_) | SDCDebugAState::Done | SDCDebugAState::Error => false,
+        }
+    }
+
+    fn on_alarm(&mut self, qq_alarm_id: usize) -> bool {
+        if let SDCDebugAState::BootDelay(id) = self.state && id == qq_alarm_id {
+            self.state = SDCDebugAState::DoWrite;
+
+            true
+        } else {
+            false
+        }
+    }
+}

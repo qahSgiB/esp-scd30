@@ -1,0 +1,98 @@
+set = write
+get = write + read
+get3 = write + delay at least 3ms + read
+
+1. * start continuous measurment + optional ambient pressure compensation or default value (1013.25 mbar) [set]
+2. * stop continuous measurment [set]
+3. * set measurment interval - default 2s [set / get]
+4. * get data ready status - recommended to use before reading measurments [get3]
+5. * read measurment - co2, temperature, humidity [get3]
+
+6. * enable ASC [set / get]
+7. * FRC set value [set / get]
+8. set temperature offset - useful for example when self heating happens [set / get]
+9. * altitude compensation - disregarded when ambient pressure is given [set / get]
+
+read firmware
+soft reset
+
+
+
+kalibracia
+    https://www.sensirion.com/media/documents/33C09C07/620638B8/Sensirion_SCD30_Field_Calibration.pdf
+
+    pouziva sa jeden nezmamy paramter = ref hodnota
+    FRC
+        posle sa aktualna hodnota co2 z externeho korektneho zdroju, podla toho sa nakalibruje
+        napriklad vonku je 400ppm, ale podla ineho senzoru
+        musi bezat aspon 2min v prostredi s referencnou hodnout co2 potom sa ma nastavit referencna hodnota
+        zotrva aj po vypnuti
+    ASC
+        potrebuje byt pravidelne ale nie nostop v prostredi s normalnym co2 (400ppm)
+        napriklad ventilovana budova bez ludi (takze to asi nebude fungovat)
+        pravidelne prepocitava ref hodnotu
+        potrebuje okolo 7 dni aspon
+        off by default ale pamata si nameranu ref hodnotu
+
+    ?? nastavenia ref hodnotu (pomocou FRC alebo ASC) by sa malo diat po nastavani sampling intervalu a po kalibracii by sa sampling interval uz nemal menit
+
+NDIR
+https://www.sensirion.com/products/catalog/SCD30/
+
+humidity - variable, meassured
+temperature - variable, meassured, param offset
+pressure - fixed set by 1. with default value
+altitude - fixed set by 9., probably related to pressure
+=> c02
+
+
+set interval
+start
+| ready
+| read
+stop
+
+
+crc
+    polynomialne delenie
+    koeficienti patria do Z_2 (Z modulo 2)
+    polynomy patria do Z_2[x] (teda ziaden carry medzi koeficientami)
+
+    check value ma 8 bitov
+    generator polynom ma najvyssi stupen 8 => check value polynom ma stupen menej ako 8 + mensi ako 8 nema zmysel
+    generator polynom = x^8 + ...
+
+    generator polynom = x^8 + x^5 + x^4 + 1 = 0b1_0011_0001 = 0x131 (0x98 without lsb)
+    initial value = 0xff
+    je to existujici variant (link nizsie)
+
+    generator poly = param
+    message = q * generator poly + crc
+    crc = message % generator poly
+
+    https://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
+    https://reveng.sourceforge.io/crc-catalogue/all.htm#crc.cat.crc-8-nrsc-5
+
+
+read -> TimeOut
+write -> Nack
+
+
+
+
+finite vs infinite state machine
+finite = helper machines
+infinite = global machines
+
+set = write
+get = write + read
+get3 = write + delay at least 3ms + read
+
+write:
+DoSend = sdc send write
+WaitForInterrupt
+
+read:
+DoSend = sdc send read
+WaitForInterrupt
+DoRecieve = read data from buffer

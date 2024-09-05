@@ -1,0 +1,32 @@
+rom - je tam 1. bootloader
+ram
+flash - nie je priamo v cpu ale sucastou devkitu, pripojena cez spi
+
+program je ulozeny vo flash (kedze je jedina perzistetna)
+
+efuse - permanentne nastavenia (preziju vypnutie)
+
+reset
+    cpu - cpu, peripherals, ...
+    core - + wifi, ble
+    system - + efuse, low power peripherals, power managment unit (?)
+    chip - + analog (?), internal memory (= ram)
+
+reset release ???
+
+da sa robit reset pomocou usb serial -> core reset
+
+chip reset sa da iba pomocou - power on
+
+strapping piny sa zaznamenavaju iba pri chip resete
+
+
+
+po resete tlacitkom
+bez arg - nevypisuje
+arg 0 - nevypisuje
+arg 1 - nevypisuje
+
+bez arg = 1
+1 -> reset
+0 -> neni reset

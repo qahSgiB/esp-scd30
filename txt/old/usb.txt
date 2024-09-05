@@ -1,0 +1,149 @@
+usb - po packetoch
+usb tuneluje serial port, protokol rs-232
+
+rx buffer sa flushuje
+ - automaticky po 64 bytoch (max velkost ubs packetu)
+ - manualne
+daju sa softwarovo riesit nedatove linky DTR, RTS (z rs-232), nemalo by byt treba
+
+ak neni host pripojeny (alebo daco nefunguje) tak sa tx buffer nikdy nepodari flushnut ??
+ - doslo by k blokovaniu (zalezi na implementacii)
+ - treba timeout ak sa niekde robi blokujuce cakanie
+
+
+USB_SERIAL_JTAG_SERIAL_OUT_EP_DATA_AVAIL bit[r] - 1 ked su stale dostupne data v rx bufferi
+USB_SERIAL_JTAG_EP1_REG byte?[r] - tu su data z rx buffera
+
+USB_REG_SERIAL_IN_EP_DATA_FREE bit[r] - 1 v tx bufferi je stale miesto (toto == 1 <=> moze sa zapisovat)
+USB_SERIAL_JTAG_EP1_REG byte?[w] - tu sa zapisuju data do tx buffera
+USB_REG_SERIAL_WR_DONE bit[w] - zapis 1 spusti flush
+ ^ tieto tri veci sa presne pouzivaju v esp-println
+
+zapisane > (poziada sa o flush) > flushuje > (signalizuje ze flush je hotovy) > volno
+
+
+USB_SERIAL_JTAG_SERIAL_OUT_RECV_PKT_INT - data su dostupne v rx bufferu
+USB_SERIAL_JTAG_SERIAL_IN_EMPTY_INT - daju sa pisat to tx buffera
+
+
+  esp-println
+cakanie na flush s timeoutom
+bez pouzitia peirpherals struktury, pouzivaju sa unsafe pointre
+pouziva critical section okolo celeho jedneho printu (zbytocne?, spomalujuce ak caka na flush), da sa vypnut
+
+  vlastny println!
+mam typ XXX
+pre XXX treba implementovat core::fmt::Write - treba metodu write_str(self, s: &str)
+potom automaticky mam metodu write_fmt a makro write! (ktore pouziva write_fmt)
+write!(XXX, format string, argumenty) x print!(format string, argumenty)
+write! je skoro print! ale treba mat writer (v pohode)
+(takto to funguje v esp-println s tym ze dodefinovane makro println!)
+
+  UsbSerialJtag
+z esp32c6-hal
+pouziva peripherals narozdiel od esp-println (teda je bezpecnejsi?)
+nepouziva critical section interne
+blokujuce / neblokujuce varianty
+implementuje core::fmt::Write -> da sa pouzivat write!
+ale v ramci implementacie core::fmt::Write pouziva blokujuce zapisovanie bez timeoutu
+
+
+
+// this will implement core::fmt::Write
+struct USBWriter<'d, SIZE> (name ???)
+usb: UsbSerialJtag<'d>
+r: ringbuffer<SIZE>
+minimum_empty_space: Option<usize> // param
+timeout: bool
+
+// tries to print remaining bytes from ringbuffer
+update():
+blocked = false
+while !r.empty()
+  usb.write_byte_nb(r[0])
+  if block
+    blocked = true
+    break
+  r.next()
+if !blocked
+  usb.flush()
+
+// tries to print immediatly, if blocks then remaining bytes are stored in ringbuffer
+write_bytes(bytes: &[u8]):
+// tries to print immediatly only when ringbuffer is empty
+if r.empty()
+  blocked = false
+  while !bytes.empty()
+    usb.write_byte_nb(bytes[0])
+    if block
+      blocked = true
+      break
+    bytes.next()
+  if !blocked
+    usb.flush()
+if !bytes.empty()
+  r.append(bytes)
+  // block could happen only here when there is not enough space in ringbuffer for remaining bytes
+  // what to do with this overflow
+  // (cannot be directly signalized to caller because core::fmt::Write::write... methods cannot return custom errors)
+
+!!! treba skombinovat kod hore, timeout, blokovanie v update ked je r skoro plny
+
+ako riesit owerflow
+
+1. zahodit co sa nezmesti + velky r
+2. blokovat kym sa nevyprazdni (vo write_bytes) + ked timeout tak sa zahodi zbytok
+3. *** blokovat ked je r skoro plny (vo update) + v printe zahodit co sa nezmesti
+   -> print bude mat dost pravdepodbne miesto, neni moc potreba z write_bytes signalizovat ze nastal overflow
+   -> blokovanie vo update a nie vo write_bytes
+   - optinally vypnute blokovanie - vtedy sa sprava ako 1.
+   - da sa nastavit nech v update blokujuco zapise vsetko co je v r
+4. zvacsovat r - treba heap, ak je usb odpojene tak sa bude r donekonecna zvacsovat
+
+ako riesit timeout
+
+pri blokujucom zapise
+na zaciatku
+  1. skusit zapisat jeden byte
+  2. ak je stale v timeoute tak skonci a nerobi vobec blokujuci zapis
+blokuci zapis normalne
+  ak sa zablokuje na isty cas (treshold) tak skonci blokujuci zapis a poznaci si ze je timeout-nuty
+
+pri hocijakom zapise
+ak sa mu podari zapisat tak si poznaci ze nie je v timeoute
+
+
+
+
+
+
+
+
+usb <- hw buffer <- sw buffer <- write
+hw buffer : 0..64 ~ full / still some space (= free)
+
+loop - blocking update (nizky min empty space) + non immediate write
+non loop - non blocking write + prilezitostny blocking update
+
+write
+ 1. write -> sw buffer
+ 2. (?) sw buffer -> hw buffer
+ - ak immediate a sw buffer je prazdny potom sa da priamo write -> hw buffer
+
+ A. not immediate
+ B. non blocking
+ C. blocking (min empty space)
+
+update
+ 1. sw buffer -> hw buffer
+
+ A. non blocking
+ B. blocking (min empty space)
+
+struct
+ - ring buffer
+ - timeout
+ - ? min empty space
+
+write params - usb, imm
+update params - imm
